@@ -1,0 +1,50 @@
+
+services:
+  tailscale-wiki:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-wiki
+    hostname: josefumi
+    environment:
+      - "TS_AUTHKEY=${TAILSCALE_TOKEN}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ${PWD}/tailscale-nginx/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      - ${PWD}/serve_configs:/var/lib/serve_configs
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: wiki-db
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_PASSWORD: wikijsrocks
+      POSTGRES_USER: wikijs
+    logging:
+      driver: "none"
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  wiki:
+    image: ghcr.io/requarks/wiki:2
+    depends_on:
+      - db
+      - tailscale-wiki
+    network_mode: service:tailscale-wiki
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: wikijs
+      DB_PASS: wikijsrocks
+      DB_NAME: wiki
+    restart: unless-stopped
+    container_name: wiki-server
+
+volumes:
+  db-data:

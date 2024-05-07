@@ -1,0 +1,66 @@
+services:
+
+  spotifyweb:
+    image: yooooomi/your_spotify_client
+    container_name: spotify_analyzer_web
+    restart: always
+    environment:
+      API_ENDPOINT: https://trish.tail5b1a8.ts.net
+    network_mode: service:tailscale-spotify
+    depends_on:
+      - mongo
+      - tailscale-spotify
+
+  spotifyserver:
+    image: yooooomi/your_spotify_server
+    container_name: spotify_analyzer_server
+    restart: always
+    depends_on:
+      - mongo
+      - tailscale-server
+    environment:
+      API_ENDPOINT: https://trish.tail5b1a8.ts.net # This MUST be included as a valid URL in the spotify dashboard (see below)
+      CLIENT_ENDPOINT: https://mista.tail5b1a8.ts.net
+      SPOTIFY_PUBLIC: "${SPOTIFY_PUBLIC}"
+      SPOTIFY_SECRET: "${SPOTIFY_SECRET}"
+    network_mode: service:tailscale-server
+
+  tailscale-spotify:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-spotify
+    hostname: mista
+    environment:
+      - "TS_AUTHKEY=${TAILSCALE_TOKEN}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ${PWD}/tailscale-spotify/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      - ${PWD}/serve_configs:/var/lib/serve_configs
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+
+  tailscale-server:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-spotifyserver
+    hostname: trish
+    environment:
+      - "TS_AUTHKEY=${TAILSCALE_TOKEN}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ${PWD}/tailscale-server/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      - ${PWD}/serve_configs:/var/lib/serve_configs
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+
+  mongo:
+    container_name: spotify_mongo
+    image: mongo:6
+    volumes:
+      - ./db:/data/db

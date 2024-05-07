@@ -1,0 +1,14 @@
+tailscale*/
+venv/
+*sqlite
+komga/artemis
+komga/data
+komga/logs
+komga/lucene
+spotify_analysis/db/
+chest
+isoeis
+strapi
+o11y/grafana_data/grafana.db
+o11y/docker-compose.yml.backup
+.env

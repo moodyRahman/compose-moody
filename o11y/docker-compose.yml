@@ -1,0 +1,89 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    volumes:
+      - 'prom_data_new:/prometheus'
+      - '$PWD/prometheus.yml:/etc/prometheus/prometheus.yml'
+      - '$PWD/web.yml:/prometheus/web.yml'
+    user: root
+    command:
+     - "--web.config.file=web.yml"
+     - "--config.file=/etc/prometheus/prometheus.yml"
+     - "--web.external-url=/prometheus"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro,rslave'
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    expose:
+      - 8080
+
+
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    # if you are running as root then set it to 0
+    # else find the right id with the id -u command
+    user: '0'
+    # adding the mount volume point which we create earlier
+    volumes:
+      - '$PWD/grafana_data:/var/lib/grafana'
+      - ./grafana.ini:/etc/grafana/grafana.ini  
+
+  
+  
+  tailscale-o11y:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-o11y
+    hostname: giorno
+    environment:
+      - "TS_AUTHKEY=${TAILSCALE_TOKEN}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ${PWD}/tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      - ${PWD}/serve_configs:/var/lib/serve_configs
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  
+  web:
+    image: nginx
+    container_name: o11y-web
+    restart: unless-stopped
+    volumes:
+      - ./o11y.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - tailscale-o11y
+    network_mode: service:tailscale-o11y
+
+volumes:
+  prom_data_new:
+  grafana-data:
